@@ -14,6 +14,7 @@ import type * as documents from "../documents.js";
 import type * as expenses from "../expenses.js";
 import type * as projects from "../projects.js";
 import type * as quotes from "../quotes.js";
+import type * as serviceTypes from "../serviceTypes.js";
 import type * as users from "../users.js";
 import type * as workers from "../workers.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   expenses: typeof expenses;
   projects: typeof projects;
   quotes: typeof quotes;
+  serviceTypes: typeof serviceTypes;
   users: typeof users;
   workers: typeof workers;
 }>;
