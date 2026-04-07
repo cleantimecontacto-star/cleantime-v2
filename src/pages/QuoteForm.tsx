@@ -246,8 +246,8 @@ export default function QuoteForm() {
           </Select>
         </div>
 
-        {/* PROYECTOS UNIFICADOS */}
-        {clientId ? (
+        {/* PROYECTOS UNIFICADOS - solo dropdown, siempre hay cliente */}
+        {clientId && (
           <div className="space-y-2">
             <label className="text-xs font-medium">Proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
             <div className="flex gap-2">
@@ -275,28 +275,6 @@ export default function QuoteForm() {
             {clientProjects !== undefined && clientProjects.length === 0 && (
               <p className="text-[10px] text-muted-foreground italic">Este cliente no tiene proyectos. Toca "+ Nuevo" para crear uno.</p>
             )}
-          </div>
-        ) : (
-          /* SIN CLIENTE: campos de texto libre */
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Nombre del proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
-              <Input
-                value={projectName}
-                onChange={e => setProjectName(e.target.value)}
-                placeholder="Ej: Torre Oriente"
-                className="h-8 text-xs"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Dirección del proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
-              <Input
-                value={projectAddress}
-                onChange={e => setProjectAddress(e.target.value)}
-                placeholder="Ej: Av. Providencia 1234"
-                className="h-8 text-xs"
-              />
-            </div>
           </div>
         )}
 
