@@ -13,18 +13,23 @@ import { useAuth } from "@/auth/AuthContext.tsx";
 export default function ConfigPage() {
   const config = useQuery(api.config.getAll);
   const categories = useQuery(api.expenses.listCategories);
+  const serviceTypesList = useQuery(api.serviceTypes.list);
   const setConfig = useMutation(api.config.set);
   const generateLogoUploadUrl = useMutation(api.config.generateLogoUploadUrl);
   const saveLogoStorageId = useMutation(api.config.saveLogoStorageId);
   const createCategory = useMutation(api.expenses.createCategory);
   const updateCategory = useMutation(api.expenses.updateCategory);
   const removeCategory = useMutation(api.expenses.removeCategory);
+  const createServiceType = useMutation(api.serviceTypes.create);
+  const updateServiceType = useMutation(api.serviceTypes.update);
+  const removeServiceType = useMutation(api.serviceTypes.remove);
 
   const { logout, changeCredentials } = useAuth();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [deleteCatId, setDeleteCatId] = useState<Id<"expenseCategories"> | null>(null);
+  const [deleteSvcId, setDeleteSvcId] = useState<Id<"serviceTypes"> | null>(null);
 
   const [companyName, setCompanyName] = useState("");
   const [companyRut, setCompanyRut] = useState("");
@@ -144,6 +149,7 @@ export default function ConfigPage() {
     }
   };
 
+  // Expense categories
   const [newCatName, setNewCatName] = useState("");
   const [editCatId, setEditCatId] = useState<Id<"expenseCategories"> | null>(null);
   const [editCatName, setEditCatName] = useState("");
@@ -153,6 +159,26 @@ export default function ConfigPage() {
     await createCategory({ name: newCatName.trim(), order: (categories ?? []).length });
     setNewCatName("");
     toast.success("Categoría agregada");
+  };
+
+  // Service types
+  const [newSvcName, setNewSvcName] = useState("");
+  const [newSvcPrice, setNewSvcPrice] = useState("");
+  const [editSvcId, setEditSvcId] = useState<Id<"serviceTypes"> | null>(null);
+  const [editSvcName, setEditSvcName] = useState("");
+  const [editSvcPrice, setEditSvcPrice] = useState("");
+
+  const handleAddServiceType = async () => {
+    if (!newSvcName.trim()) return;
+    const price = newSvcPrice.trim() ? parseFloat(newSvcPrice) : undefined;
+    await createServiceType({
+      name: newSvcName.trim(),
+      pricePerM2: price && !isNaN(price) ? price : undefined,
+      order: (serviceTypesList ?? []).length,
+    });
+    setNewSvcName("");
+    setNewSvcPrice("");
+    toast.success("Servicio agregado");
   };
 
   return (<>
@@ -256,6 +282,106 @@ export default function ConfigPage() {
           </Button>
         </div>
 
+        {/* Service types */}
+        <div className="bg-card rounded-lg border border-border p-3 space-y-2">
+          <p className="text-xs font-bold">Tipos de servicio</p>
+          <p className="text-[10px] text-muted-foreground">Aparecen en el formulario de nueva cotización. El precio se auto-completa al seleccionar.</p>
+          <div className="space-y-1">
+            {(serviceTypesList ?? []).map(svc => (
+              <div key={svc._id} className="flex items-center gap-1.5">
+                {editSvcId === svc._id ? (
+                  <>
+                    <Input
+                      value={editSvcName}
+                      onChange={e => setEditSvcName(e.target.value)}
+                      className="flex-1 h-6 text-xs"
+                      placeholder="Nombre del servicio"
+                      autoFocus
+                    />
+                    <Input
+                      type="number"
+                      value={editSvcPrice}
+                      onChange={e => setEditSvcPrice(e.target.value)}
+                      className="w-24 h-6 text-xs"
+                      placeholder="$/m²"
+                    />
+                    <button
+                      onClick={async () => {
+                        const price = editSvcPrice.trim() ? parseFloat(editSvcPrice) : undefined;
+                        await updateServiceType({
+                          id: svc._id,
+                          name: editSvcName,
+                          pricePerM2: price && !isNaN(price) ? price : undefined,
+                        });
+                        setEditSvcId(null);
+                        toast.success("Servicio actualizado");
+                      }}
+                      className="text-green-600 p-0.5 hover:bg-muted rounded"
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button onClick={() => setEditSvcId(null)} className="p-0.5 hover:bg-muted rounded">
+                      <X size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-xs">{svc.name}</span>
+                    {svc.pricePerM2 != null && (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        ${svc.pricePerM2.toLocaleString("es-CL")}/m²
+                      </span>
+                    )}
+                    <button
+                      onClick={() => {
+                        setEditSvcId(svc._id);
+                        setEditSvcName(svc.name);
+                        setEditSvcPrice(svc.pricePerM2 != null ? String(svc.pricePerM2) : "");
+                      }}
+                      className="p-0.5 hover:bg-muted rounded"
+                    >
+                      <Pencil size={11} />
+                    </button>
+                    <button
+                      onClick={() => setDeleteSvcId(svc._id)}
+                      className="p-0.5 hover:bg-muted rounded text-destructive"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+            {(serviceTypesList ?? []).length === 0 && (
+              <p className="text-[10px] text-muted-foreground italic">
+                Sin servicios — se usan los predeterminados (Limpieza Fina, Limpieza Gruesa).
+              </p>
+            )}
+          </div>
+          <div className="flex gap-1.5">
+            <Input
+              value={newSvcName}
+              onChange={e => setNewSvcName(e.target.value)}
+              placeholder="Nombre del servicio..."
+              className="flex-1 h-7 text-xs"
+              onKeyDown={e => e.key === "Enter" && handleAddServiceType()}
+            />
+            <Input
+              type="number"
+              value={newSvcPrice}
+              onChange={e => setNewSvcPrice(e.target.value)}
+              placeholder="$/m²"
+              className="w-24 h-7 text-xs"
+            />
+            <button
+              onClick={handleAddServiceType}
+              className="flex items-center gap-1 bg-primary text-primary-foreground px-2 py-1 rounded text-xs whitespace-nowrap shrink-0"
+            >
+              <Plus size={12} /> Agregar
+            </button>
+          </div>
+        </div>
+
         {/* Expense categories */}
         <div className="bg-card rounded-lg border border-border p-3 space-y-2">
           <p className="text-xs font-bold">Categorías de gastos</p>
@@ -351,6 +477,13 @@ export default function ConfigPage() {
         onConfirm={async () => { if (deleteCatId) { await removeCategory({ id: deleteCatId }); toast.success("Categoría eliminada"); } }}
         title="¿Eliminar categoría?"
         description="Se eliminará la categoría de gastos. Esta acción no se puede deshacer."
+      />
+      <DeleteConfirmDialog
+        open={!!deleteSvcId}
+        onClose={() => setDeleteSvcId(null)}
+        onConfirm={async () => { if (deleteSvcId) { await removeServiceType({ id: deleteSvcId }); toast.success("Servicio eliminado"); } }}
+        title="¿Eliminar servicio?"
+        description="Se eliminará este tipo de servicio. Esta acción no se puede deshacer."
       />
   </>
   );
