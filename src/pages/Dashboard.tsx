@@ -103,6 +103,14 @@ export default function Dashboard() {
   // Ganancia neta = ingresos sin IVA - gastos (el IVA no es ganancia, va al SII)
   const gananciaPeriod = subtotalPeriod - gastosPeriod;
 
+  // Por cobrar: cotizaciones Aprobadas (no facturadas) en TODO el tiempo
+  const allApprovedPending = useMemo(() =>
+    (quotes ?? []).filter(q => q.status === "Aprobada"), [quotes]);
+  const pendingSubtotal = useMemo(() =>
+    allApprovedPending.reduce((s, q) => s + q.subtotal, 0), [allApprovedPending]);
+  const pendingTotal = useMemo(() =>
+    allApprovedPending.reduce((s, q) => s + q.subtotal + q.iva, 0), [allApprovedPending]);
+
   // Acumulado histórico (siempre todo el tiempo)
   const workerCostsTotal = useMemo(() =>
     (workers ?? []).reduce((s, j) => s + j.amount, 0), [workers]);
@@ -198,6 +206,32 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+
+          {/* Por cobrar — cotizaciones aprobadas pendientes de facturar (siempre visible) */}
+          {!loading && allApprovedPending.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                Por cobrar
+                <span className="ml-1.5 text-amber-500 normal-case font-normal">(aprobadas, sin facturar)</span>
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-300/60 p-2 text-center">
+                  <p className="text-2xl font-bold text-amber-600">{allApprovedPending.length}</p>
+                  <p className="text-[10px] text-muted-foreground">cotizaciones</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-300/60 p-2">
+                  <p className="text-[9px] text-muted-foreground">Subtotal</p>
+                  <p className="text-xs font-bold text-amber-600">{formatCLP(pendingSubtotal)}</p>
+                  <p className="text-[9px] text-muted-foreground">sin IVA</p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-300/60 p-2">
+                  <p className="text-[9px] text-muted-foreground">Total c/IVA</p>
+                  <p className="text-xs font-bold text-amber-600">{formatCLP(pendingTotal)}</p>
+                  <p className="text-[9px] text-muted-foreground">a facturar</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Acumulado histórico — solo cuando el período no es "todo" */}
           {period !== "todo" && !loading && (
