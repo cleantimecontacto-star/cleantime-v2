@@ -31,6 +31,7 @@ export default function QuoteForm() {
   const existingQuote = useQuery(api.quotes.get, isEdit ? { id: id as Id<"quotes"> } : "skip");
   const createQuote = useMutation(api.quotes.create);
   const updateQuote = useMutation(api.quotes.update);
+  const createProject = useMutation(api.projects.create);
 
   const [clientId, setClientId] = useState<string>("");
   const [projectId, setProjectId] = useState<string>("");
@@ -54,6 +55,12 @@ export default function QuoteForm() {
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [pendingOtNumber, setPendingOtNumber] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Modal crear proyecto
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectAddress, setNewProjectAddress] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
 
   // Load projects for selected client
   const clientProjects = useQuery(
@@ -130,6 +137,30 @@ export default function QuoteForm() {
     if (project) {
       setProjectName(project.name);
       setProjectAddress(project.address ?? "");
+    }
+  };
+
+  // Crear nuevo proyecto desde el modal
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) { toast.error("Ingresa el nombre del proyecto"); return; }
+    setCreatingProject(true);
+    try {
+      const newId = await createProject({
+        clientId: clientId as Id<"clients">,
+        name: newProjectName.trim(),
+        address: newProjectAddress.trim() || undefined,
+      });
+      setProjectId(newId as string);
+      setProjectName(newProjectName.trim());
+      setProjectAddress(newProjectAddress.trim());
+      setNewProjectName("");
+      setNewProjectAddress("");
+      setShowCreateProjectModal(false);
+      toast.success("Proyecto creado");
+    } catch {
+      toast.error("Error al crear proyecto");
+    } finally {
+      setCreatingProject(false);
     }
   };
 
@@ -215,50 +246,38 @@ export default function QuoteForm() {
           </Select>
         </div>
 
-        {/* Proyecto — dropdown si hay cliente, campos de texto libre si no */}
+        {/* PROYECTOS UNIFICADOS */}
         {clientId ? (
           <div className="space-y-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
-              <Select value={projectId || "none"} onValueChange={v => handleProjectChange(v === "none" ? "" : v)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Sin proyecto asignado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin proyecto asignado</SelectItem>
-                  {(clientProjects ?? []).map(p => (
-                    <SelectItem key={p._id} value={p._id}>{p.name}{p.address ? ` · ${p.address}` : ""}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {clientProjects !== undefined && clientProjects.length === 0 && (
-                <p className="text-[10px] text-muted-foreground italic">Este cliente no tiene proyectos. Puedes crearlos desde la sección Clientes.</p>
-              )}
-            </div>
-            {/* Campos de texto (se pre-rellenan al elegir proyecto, pero editables) */}
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Nombre del proyecto</label>
-                <Input
-                  value={projectName}
-                  onChange={e => setProjectName(e.target.value)}
-                  placeholder="Ej: Torre Oriente"
-                  className="h-8 text-xs"
-                />
+            <label className="text-xs font-medium">Proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Select value={projectId || "none"} onValueChange={v => handleProjectChange(v === "none" ? "" : v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Sin proyecto asignado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin proyecto asignado</SelectItem>
+                    {(clientProjects ?? []).map(p => (
+                      <SelectItem key={p._id} value={p._id}>{p.name}{p.address ? ` · ${p.address}` : ""}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Dirección del proyecto</label>
-                <Input
-                  value={projectAddress}
-                  onChange={e => setProjectAddress(e.target.value)}
-                  placeholder="Ej: Av. Providencia 1234"
-                  className="h-8 text-xs"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateProjectModal(true)}
+                className="h-8 px-3 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 whitespace-nowrap"
+              >
+                + Nuevo
+              </button>
             </div>
+            {clientProjects !== undefined && clientProjects.length === 0 && (
+              <p className="text-[10px] text-muted-foreground italic">Este cliente no tiene proyectos. Toca "+ Nuevo" para crear uno.</p>
+            )}
           </div>
         ) : (
-          /* Campos de texto libre cuando no hay cliente seleccionado */
+          /* SIN CLIENTE: campos de texto libre */
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-medium">Nombre del proyecto <span className="text-muted-foreground font-normal">(opcional)</span></label>
@@ -510,12 +529,57 @@ export default function QuoteForm() {
         </Button>
       </div>
       </div>
-          <ApproveConfirmDialog
+
+      {/* Modal Crear Proyecto */}
+      {showCreateProjectModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-lg p-4 w-full max-w-sm space-y-3 shadow-xl">
+            <h3 className="text-sm font-semibold">Nuevo Proyecto</h3>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Nombre *</label>
+              <Input
+                value={newProjectName}
+                onChange={e => setNewProjectName(e.target.value)}
+                placeholder="Ej: Torre Oriente"
+                className="h-8 text-xs"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Dirección <span className="text-muted-foreground font-normal">(opcional)</span></label>
+              <Input
+                value={newProjectAddress}
+                onChange={e => setNewProjectAddress(e.target.value)}
+                placeholder="Ej: Av. Providencia 1234"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button
+                variant="outline"
+                className="flex-1 h-8 text-xs"
+                onClick={() => { setShowCreateProjectModal(false); setNewProjectName(""); setNewProjectAddress(""); }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1 h-8 text-xs"
+                onClick={handleCreateProject}
+                disabled={creatingProject}
+              >
+                {creatingProject ? "Creando..." : "Crear"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ApproveConfirmDialog
         open={showApproveDialog}
         onClose={() => setShowApproveDialog(false)}
         onConfirm={() => { if (status !== "Facturada") setStatus("Aprobada"); }}
         otNumber={pendingOtNumber}
       />
-      </AppLayout>
+    </AppLayout>
   );
 }
