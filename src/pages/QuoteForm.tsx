@@ -1,6 +1,6 @@
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api.js";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppLayout from "@/components/AppLayout.tsx";
 import { todayISO, QUOTE_STATUSES, type QuoteStatus } from "@/lib/cleantime.ts";
@@ -28,10 +28,17 @@ export default function QuoteForm() {
 
   const clients = useQuery(api.clients.list);
   const config = useQuery(api.config.getAll);
+  const serviceTypes = useQuery(api.serviceTypes.list);
   const existingQuote = useQuery(api.quotes.get, isEdit ? { id: id as Id<"quotes"> } : "skip");
   const createQuote = useMutation(api.quotes.create);
   const updateQuote = useMutation(api.quotes.update);
   const createProject = useMutation(api.projects.create);
+
+  // Effective service type names: use DB list if configured, else fallback to defaults
+  const effectiveServiceTypes =
+    serviceTypes && serviceTypes.length > 0
+      ? serviceTypes.map(s => s.name)
+      : DEFAULT_SERVICE_TYPES;
 
   const [clientId, setClientId] = useState<string>("");
   const [projectId, setProjectId] = useState<string>("");
@@ -62,28 +69,49 @@ export default function QuoteForm() {
   const [newProjectAddress, setNewProjectAddress] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
 
+  // Refs to avoid re-running load effects
+  const svcInitRef = useRef(false);
+  const existingQuoteLoadedRef = useRef(false);
+
   // Load projects for selected client
   const clientProjects = useQuery(
     api.projects.listByClient,
     clientId ? { clientId: clientId as Id<"clients"> } : "skip"
   );
 
-  // Load defaults from config
+  // Initialize defaults for new quotes — runs once when both config and serviceTypes are ready
   useEffect(() => {
-    if (config && !isEdit) {
+    if (!isEdit && serviceTypes !== undefined && !svcInitRef.current) {
+      svcInitRef.current = true;
+      if (serviceTypes.length > 0) {
+        const first = serviceTypes[0];
+        setServiceType(first.name);
+        if (first.pricePerM2) setPricePerM2(String(first.pricePerM2));
+        else if (config && config["price_fina"]) setPricePerM2(config["price_fina"]);
+      } else if (config && config["price_fina"]) {
+        setPricePerM2(config["price_fina"]);
+      }
+    }
+  }, [serviceTypes, config, isEdit]);
+
+  // Fallback: if serviceTypes loaded but config wasn't ready yet, set price from config
+  useEffect(() => {
+    if (!isEdit && svcInitRef.current && config && serviceTypes !== undefined && serviceTypes.length === 0) {
       if (config["price_fina"]) setPricePerM2(config["price_fina"]);
     }
-  }, [config, isEdit]);
+  }, [config, isEdit, serviceTypes]);
 
-  // Load existing quote
+  // Load existing quote — runs once when both existingQuote and serviceTypes are ready
   useEffect(() => {
-    if (existingQuote) {
+    if (existingQuote && serviceTypes !== undefined && !existingQuoteLoadedRef.current) {
+      existingQuoteLoadedRef.current = true;
       setClientId(existingQuote.clientId);
       setProjectId(existingQuote.projectId ?? "");
       setProjectName(existingQuote.projectName ?? "");
       setProjectAddress((existingQuote as any).projectAddress ?? "");
-      // Handle custom service types
-      const knownTypes = ["Limpieza Fina", "Limpieza Gruesa"];
+      // Handle custom service types: check against DB list (or defaults if no DB list)
+      const knownTypes =
+        serviceTypes.length > 0 ? serviceTypes.map(s => s.name) : DEFAULT_SERVICE_TYPES;
       if (knownTypes.includes(existingQuote.serviceType)) {
         setServiceType(existingQuote.serviceType);
         setCustomServiceType("");
@@ -107,15 +135,21 @@ export default function QuoteForm() {
       const rawP = existingQuote.paymentStatus ?? "Sin pagar";
       setPaymentStatus(LEGACY[rawP] ?? rawP);
     }
-  }, [existingQuote]);
+  }, [existingQuote, serviceTypes]);
 
-  // Update price when service type changes
+  // Auto-fill price when user manually changes service type
   useEffect(() => {
-    if (config && !isEdit) {
-      if (serviceType === "Limpieza Fina" && config["price_fina"]) setPricePerM2(config["price_fina"]);
-      if (serviceType === "Limpieza Gruesa" && config["price_gruesa"]) setPricePerM2(config["price_gruesa"]);
+    if (!isEdit && svcInitRef.current) {
+      if (serviceTypes && serviceTypes.length > 0) {
+        const found = serviceTypes.find(s => s.name === serviceType);
+        if (found?.pricePerM2) setPricePerM2(String(found.pricePerM2));
+      } else if (config) {
+        if (serviceType === "Limpieza Fina" && config["price_fina"]) setPricePerM2(config["price_fina"]);
+        if (serviceType === "Limpieza Gruesa" && config["price_gruesa"]) setPricePerM2(config["price_gruesa"]);
+      }
     }
-  }, [serviceType, config, isEdit]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceType]);
 
   // When client changes, reset project selection
   const handleClientChange = (newClientId: string) => {
@@ -330,7 +364,7 @@ export default function QuoteForm() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {DEFAULT_SERVICE_TYPES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              {effectiveServiceTypes.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               <SelectItem value="Otro">Otro</SelectItem>
             </SelectContent>
           </Select>
@@ -561,4 +595,3 @@ export default function QuoteForm() {
     </AppLayout>
   );
 }
-// force redeploy Tue Apr  7 20:42:00 UTC 2026

@@ -106,6 +106,13 @@ export default defineSchema({
     order: v.number(),
   }),
 
+  // Service types (editable)
+  serviceTypes: defineTable({
+    name: v.string(),
+    pricePerM2: v.optional(v.number()),
+    order: v.number(),
+  }).index("by_order", ["order"]),
+
   // ── Documentos de empresa ──────────────────────────────────────────────────
 
   // Document categories (editable)
