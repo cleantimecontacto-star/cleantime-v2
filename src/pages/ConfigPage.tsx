@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 
 import AppLayout from "@/components/AppLayout.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { Plus, Trash2, Check, Pencil, X, Upload, ImageIcon, LogOut, KeyRound } from "lucide-react";
+import { Plus, Trash2, Check, Pencil, X, Upload, ImageIcon, KeyRound } from "lucide-react";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog.tsx";
 import { toast } from "sonner";
 import type { Id } from "@/convex/_generated/dataModel.d.ts";
@@ -24,7 +24,6 @@ export default function ConfigPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [deleteCatId, setDeleteCatId] = useState<Id<"expenseCategories"> | null>(null);
 
   const [companyName, setCompanyName] = useState("");
@@ -342,34 +341,10 @@ export default function ConfigPage() {
           </div>
         </div>
 
-        {/* Cerrar sesión — al fondo, discreto */}
-        <div className="pt-2 pb-4">
-          <button
-            onClick={() => {
-              setShowLogoutDialog(true);
-            }}
-            className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-destructive transition-colors py-2"
-          >
-            <LogOut size={13} />
-            Cerrar sesión
-          </button>
-        </div>
 
       </div>
       </div>
     </AppLayout>
-    {showLogoutDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card rounded-xl border border-border p-5 max-w-xs w-full space-y-3 shadow-xl">
-            <p className="font-semibold text-sm">¿Cerrar sesión?</p>
-            <p className="text-xs text-muted-foreground">Se cerrará tu sesión actual en esta app.</p>
-            <div className="flex gap-2">
-              <button onClick={() => setShowLogoutDialog(false)} className="flex-1 py-2 rounded border border-border text-sm">Cancelar</button>
-              <button onClick={() => { setShowLogoutDialog(false); logout(); }} className="flex-1 py-2 rounded bg-destructive text-destructive-foreground text-sm font-medium">Cerrar sesión</button>
-            </div>
-          </div>
-        </div>
-      )}
       <DeleteConfirmDialog
         open={!!deleteCatId}
         onClose={() => setDeleteCatId(null)}
