@@ -181,7 +181,7 @@ export default function AppLayout({ children, title, headerRight }: AppLayoutPro
         </header>
 
         {/* Main content */}
-        <main className="flex-1 overflow-hidden">
+        <main className="flex-1 overflow-hidden min-h-0">
           {children}
         </main>
 
