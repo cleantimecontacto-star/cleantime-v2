@@ -17,8 +17,8 @@ interface AuthContextType {
   changeCredentials: (newUser: string, newPass: string) => void;
 }
 
-const DEFAULT_USER = "admin";
-const DEFAULT_PASS = "Cleantime2024!";
+const DEFAULT_USER = import.meta.env.VITE_DEFAULT_USER ?? "admin";
+const DEFAULT_PASS = import.meta.env.VITE_DEFAULT_PASS ?? "Cleantime2024!";
 const CREDS_KEY = "cleantime_creds";
 
 function getStoredCreds() {

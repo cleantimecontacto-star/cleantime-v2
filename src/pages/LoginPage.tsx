@@ -17,6 +17,30 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<number | null>(() => {
+    const stored = localStorage.getItem("ct_locked_until");
+    return stored ? parseInt(stored) : null;
+  });
+
+  const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
+  const [lockCountdown, setLockCountdown] = useState(0);
+
+  useEffect(() => {
+    if (!isLocked) return;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockedUntil! - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockedUntil(null);
+        localStorage.removeItem("ct_locked_until");
+        clearInterval(interval);
+      } else {
+        setLockCountdown(remaining);
+      }
+    }, 1000);
+    setLockCountdown(Math.ceil((lockedUntil! - Date.now()) / 1000));
+    return () => clearInterval(interval);
+  }, [isLocked, lockedUntil]);
 
   const logoBase64 = config?.["logo_base64"] ?? "";
   const logoUrl = config?.["logo_url"] ?? "";
@@ -31,14 +55,26 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) return;
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 200)); // pequeño delay visual
+    await new Promise((r) => setTimeout(r, 400)); // delay para dificultar timing attacks
     const ok = login(username.trim(), password);
     if (ok) {
+      setAttempts(0);
+      localStorage.removeItem("ct_locked_until");
       navigate("/", { replace: true });
     } else {
-      setError("Usuario o contraseña incorrectos");
+      const newAttempts = attempts + 1;
+      setAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        const until = Date.now() + 5 * 60 * 1000; // bloqueo 5 minutos
+        setLockedUntil(until);
+        localStorage.setItem("ct_locked_until", String(until));
+        setError("Demasiados intentos fallidos. Bloqueado por 5 minutos.");
+      } else {
+        setError(`Credenciales incorrectas. Intento ${newAttempts} de 5.`);
+      }
     }
     setLoading(false);
   };
@@ -69,7 +105,7 @@ export default function LoginPage() {
               {companyName}
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Panel de administración
+              Acceso privado
             </p>
           </div>
 
@@ -83,7 +119,7 @@ export default function LoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
+                placeholder="Ingresa tu usuario"
                 autoComplete="username"
                 autoFocus
                 required
@@ -121,7 +157,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
+            {isLocked && (
+              <p className="text-sm text-red-500 text-center font-medium">
+                Acceso bloqueado. Intenta de nuevo en {lockCountdown}s.
+              </p>
+            )}
+
+            {error && !isLocked && (
               <p className="text-sm text-red-500 text-center font-medium">
                 {error}
               </p>
@@ -130,9 +172,9 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="w-full"
-              disabled={loading}
+              disabled={loading || isLocked}
             >
-              {loading ? "Iniciando sesión..." : "Ingresar"}
+              {loading ? "Verificando..." : isLocked ? `Bloqueado (${lockCountdown}s)` : "Ingresar"}
             </Button>
           </form>
         </div>
